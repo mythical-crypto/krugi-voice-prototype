@@ -1,0 +1,104 @@
+name: Build portable Windows release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: portable-v0.1.0
+  cancel-in-progress: false
+
+jobs:
+  portable:
+    runs-on: windows-2022
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: v0.1.0
+          persist-credentials: false
+      - name: Prepare pinned runtimes and models
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = (Get-Location).Path
+          New-Item -ItemType Directory -Path tools/python,runtime/temp,tools/moss-tts,tools/vosk -Force | Out-Null
+          function Download-Verified($url,$path,$hash) {
+            & curl.exe -L --fail --retry 3 --output $path $url
+            if ($LASTEXITCODE -ne 0 -or (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -ne $hash) { throw "Download verification failed: $path" }
+          }
+          Download-Verified 'https://github.com/astral-sh/uv/releases/download/0.11.12/uv-x86_64-pc-windows-msvc.zip' 'runtime/temp/uv.zip' 'e46956a6b088a0382101c797eef945c1b03826e629e968d434cf838d42d85b6b'
+          Expand-Archive -LiteralPath runtime/temp/uv.zip -DestinationPath runtime/temp/uv
+          $uvFile = Get-ChildItem -LiteralPath runtime/temp/uv -Recurse -Filter uv.exe | Select-Object -First 1
+          Copy-Item -LiteralPath $uvFile.FullName -Destination tools/python/uv.exe
+          if ((Get-FileHash -LiteralPath tools/python/uv.exe -Algorithm SHA256).Hash -ne 'a653188a2e2e182c8ff029eeaf4291d8e360f1de13289d2037ce4cc2e49667d8') { throw 'Unexpected uv executable' }
+          & ./setup.ps1 -SkipVoice -SkipBuild
+          if ($LASTEXITCODE -ne 0) { throw 'App setup failed' }
+          $env:UV_PYTHON_INSTALL_DIR = Join-Path $root 'tools/python/interpreters'
+          $env:UV_CACHE_DIR = Join-Path $root 'runtime/cache/uv'
+          & ./tools/python/uv.exe python install 3.12.13 --no-bin --no-registry
+          if ($LASTEXITCODE -ne 0) { throw 'Python install failed' }
+          & ./tools/python/uv.exe venv --python 3.12.13 tools/python/venv
+          if ($LASTEXITCODE -ne 0) { throw 'Python environment failed' }
+          & ./tools/python/uv.exe pip install --python tools/python/venv/Scripts/python.exe -r apps/voice/requirements.lock.txt
+          if ($LASTEXITCODE -ne 0) { throw 'Python packages failed' }
+          Download-Verified 'https://raw.githubusercontent.com/OpenMOSS/MOSS-TTS-Nano/8b7bcc9341b3b4ef3a3a58ba1338a7d85ff133eb/ort_cpu_runtime.py' 'tools/moss-tts/ort_cpu_runtime.py' '99477efaff28c12c0c8e16a6b4aab4e880a70851693fa303d932415ba180cbd5'
+          Download-Verified 'https://raw.githubusercontent.com/OpenMOSS/MOSS-TTS-Nano/8b7bcc9341b3b4ef3a3a58ba1338a7d85ff133eb/LICENSE' 'tools/moss-tts/LICENSE' '1dc6904a1959e039b44569c6a726a611f75287051284de1b6cc0dc7712b14d11'
+          Download-Verified 'https://alphacephei.com/vosk/models/vosk-model-small-ru-0.22.zip' 'runtime/temp/vosk.zip' '961d5ff98a17f4aa6de69864d0aa71fa5bac682301d2b5d17a3f24c5c99a46d4'
+          Expand-Archive -LiteralPath runtime/temp/vosk.zip -DestinationPath tools/vosk
+          & ./tools/python/venv/Scripts/python.exe scripts/setup-piper.py
+          if ($LASTEXITCODE -ne 0) { throw 'Piper setup failed' }
+      - name: Verify source and prepare standalone distribution
+        run: |
+          & ./tools/bun/bun.exe run verify
+          if ($LASTEXITCODE -ne 0) { throw 'Verification failed' }
+          & ./tools/python/venv/Scripts/python.exe scripts/package-portable.py
+          if ($LASTEXITCODE -ne 0) { throw 'Portable packaging failed' }
+      - name: Test packaged ASR, TTS, price and Qwen on CPU
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Push-Location runtime/portable-build/Krugi
+          try {
+            & ./scripts/launch.ps1 -Cpu -NoBrowser
+            if ($LASTEXITCODE -ne 0) { throw 'Portable startup failed' }
+            & ./tools/node/node.exe scripts/portable-smoke.cjs
+            if ($LASTEXITCODE -ne 0) { throw 'Portable smoke failed' }
+          } finally {
+            & ./stop.ps1
+            Pop-Location
+          }
+      - name: Archive and split for GitHub
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Remove-Item -LiteralPath tools/llama-cpp/Qwen3-4B-Instruct-2507-Q4_K_M.gguf
+          & ./tools/python/venv/Scripts/python.exe scripts/package-portable.py --archive-only --archive runtime/Krugi-Windows-x64.zip
+          if ($LASTEXITCODE -ne 0) { throw 'ZIP verification failed' }
+          & ./tools/python/venv/Scripts/python.exe scripts/release-parts.py runtime/Krugi-Windows-x64.zip
+          if ($LASTEXITCODE -ne 0) { throw 'Release split failed' }
+          $manifest = Get-Content -LiteralPath runtime/release-assets/Krugi-Windows-x64.parts.json -Raw | ConvertFrom-Json
+          @{sourceCommit=(git rev-parse HEAD);runUrl="https://github.com/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID";cpuSmoke=(Get-Content -LiteralPath runtime/portable-build/Krugi/runtime/portable-smoke.json -Raw | ConvertFrom-Json);archive=$manifest.archive} | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath runtime/release-assets/CI-build.json -Encoding UTF8
+          @"
+          # Круги 0.1.0 — переносимая Windows-сборка
+
+          Скачайте START-Krugi.cmd и обе части Krugi-Windows-x64.zip.001/.002 в одну папку. Нажмите START-Krugi.cmd: он проверит SHA-256, соберёт ZIP, распакует и запустит приложение.
+
+          Нужна Windows x64 и примерно 9 ГБ места для всех файлов вместе. Node.js, Python, зависимости и модели включены. После скачивания работа локальная, без API-ключей. В следующий раз используйте ЗАПУСК.cmd внутри Krugi, после работы — ОСТАНОВИТЬ.cmd.
+
+          Собрано GitHub Actions из исходников $(git rev-parse HEAD). Пройдены verify (56 TS/API/аудиотестов, 9 Python-тестов, lint/typecheck/build) и настоящий CPU smoke (ASR, TTS, расчёт, Qwen). Ссылка и детали — CI-build.json.
+
+          ZIP SHA-256: $($manifest.archive.sha256).
+
+          Две части нужны из-за ограничения GitHub в 2 ГиБ на файл. Source code (zip/tar.gz) — только исходники, без моделей. Данные и бонусы демонстрационные, CRM/запись/платежи не подключены. Карточки и лицензии компонентов включены; лицензия датасета Irina указана как Unknown, коммерческие права не подтверждены.
+          "@ | Set-Content -LiteralPath runtime/release-notes.md -Encoding UTF8
+      - name: Upload verified assets to the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload v0.1.0 runtime/release-assets/START-Krugi.cmd runtime/release-assets/Krugi-Windows-x64.zip.001 runtime/release-assets/Krugi-Windows-x64.zip.002 runtime/release-assets/Krugi-Windows-x64.parts.json runtime/release-assets/CI-build.json --repo $env:GITHUB_REPOSITORY --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'Asset upload failed' }
+          gh release edit v0.1.0 --repo $env:GITHUB_REPOSITORY --notes-file runtime/release-notes.md
+          if ($LASTEXITCODE -ne 0) { throw 'Release notes failed' }

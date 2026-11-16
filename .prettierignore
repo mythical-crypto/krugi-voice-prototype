@@ -1,0 +1,7 @@
+tools/
+runtime/
+node_modules/
+**/dist/
+outputs/
+bun.lock
+docs/krugi-agent-analysis.html

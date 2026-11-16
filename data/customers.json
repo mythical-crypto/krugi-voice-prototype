@@ -1,0 +1,8 @@
+{
+  "demo": true,
+  "customers": [
+    { "phone": "+79000000001", "balance": 0 },
+    { "phone": "+79000000002", "balance": 600 },
+    { "phone": "+79000000003", "balance": 2000 }
+  ]
+}

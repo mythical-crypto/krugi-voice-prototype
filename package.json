@@ -1,0 +1,50 @@
+{
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "ws": "8.23.0",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2",
+    "@nestjs/core": "12.5.0",
+    "@nestjs/common": "12.5.0",
+    "zod": "4.6.7",
+    "react-dom": "19.3.1",
+    "@nestjs/platform-express": "12.5.0",
+    "react": "19.3.1"
+  },
+  "scripts": {
+    "test": "bun test ./tests/unit.test.ts ./tests/api.test.ts ./apps/frontend/tests/audio.test.ts ./apps/frontend/tests/audio-session.test.ts ./tests/scenarios.test.ts",
+    "verify": "bun run format:check && bun run lint && bun run typecheck && bun run test && bun run test:python && bun run build",
+    "stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/stop.ps1",
+    "test:models": "bun scripts/evaluate.ts",
+    "typecheck": "tsc --noEmit",
+    "dev": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start.ps1",
+    "lint": "eslint apps packages scripts tests",
+    "format:check": "prettier --check .",
+    "build": "bun scripts/build.ts",
+    "test:python": "tools/python/venv/Scripts/python.exe -m unittest discover -s apps/voice -p 'test_*.py'",
+    "format": "prettier --write .",
+    "test:scenarios:real": "bun scripts/audit-dialogues.ts"
+  },
+  "workspaces": [
+    "apps/frontend",
+    "apps/backend",
+    "packages/shared"
+  ],
+  "name": "krugi-voice-prototype",
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "eslint": "9.39.5",
+    "@types/bun": "1.4.4",
+    "esbuild": "0.25.12",
+    "typescript-eslint": "8.72.2",
+    "@types/react": "19.3.0",
+    "vite": "6.4.1",
+    "@types/ws": "8.18.1",
+    "@types/node": "22.20.5",
+    "prettier": "3.10.1",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "4.7.0"
+  },
+  "type": "module"
+}

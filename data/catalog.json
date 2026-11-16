@@ -1,0 +1,26 @@
+{
+  "demo": true,
+  "programs": [
+    {
+      "id": "wheel",
+      "name": "Индивидуальное занятие на гончарном круге",
+      "participants": 1,
+      "durationMinutes": 90,
+      "price": 3200
+    },
+    {
+      "id": "handbuilding",
+      "name": "Индивидуальная лепка",
+      "participants": 1,
+      "durationMinutes": 90,
+      "price": 2800
+    },
+    {
+      "id": "date",
+      "name": "Парное свидание",
+      "participants": 2,
+      "durationMinutes": 120,
+      "price": 5600
+    }
+  ]
+}

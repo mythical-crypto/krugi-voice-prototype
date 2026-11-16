@@ -1,0 +1,5 @@
+numpy==2.3.5
+onnxruntime==1.24.4
+sentencepiece==0.2.1
+vosk==0.3.45
+

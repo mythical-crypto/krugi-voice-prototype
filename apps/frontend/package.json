@@ -1,0 +1,21 @@
+{
+  "name": "@krugi/frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 9150 --strictPort",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 9150 --strictPort"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.4.1",
+    "vite": "^6.4.1"
+  }
+}

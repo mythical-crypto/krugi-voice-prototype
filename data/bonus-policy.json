@@ -1,0 +1,7 @@
+{
+  "demo": true,
+  "sourceId": "bonus-policy",
+  "rublesPerBonus": 1,
+  "maxCoveragePercent": 20,
+  "firstVisitDiscountPercent": 0
+}

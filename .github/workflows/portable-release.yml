@@ -25,6 +25,8 @@ jobs:
       - name: Prepare pinned runtimes and models
         run: |
           $ErrorActionPreference = 'Stop'
+          git config --local core.autocrlf false
+          git checkout-index --force --all
           $root = (Get-Location).Path
           New-Item -ItemType Directory -Path tools/python,runtime/temp,tools/moss-tts,tools/vosk -Force | Out-Null
           function Download-Verified($url,$path,$hash) {

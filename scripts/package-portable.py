@@ -16,6 +16,15 @@ IGNORE = shutil.ignore_patterns('__pycache__', '*.pyc', '*.pyo', '.git', '.DS_St
 
 def copy(relative, destination=None):
     source = ROOT / relative
+    vendor_files = {
+        'tools/llama-cpp/LICENSE': 'packaging/licenses/llama.cpp-LICENSE',
+        'tools/llama-cpp/Qwen-LICENSE': 'packaging/licenses/Qwen-LICENSE',
+        'tools/llama-cpp/assets-manifest.json': 'packaging/assets-manifest.json',
+    }
+    if not source.exists() and str(relative) in vendor_files:
+        source = ROOT / vendor_files[str(relative)]
+    if not source.exists():
+        raise FileNotFoundError('Portable build input is missing: ' + str(relative))
     target = STAGE / (destination or relative)
     target.parent.mkdir(parents=True, exist_ok=True)
     if source.is_dir():

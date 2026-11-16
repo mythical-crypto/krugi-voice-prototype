@@ -69,7 +69,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           Push-Location runtime/portable-build/Krugi
           try {
-            & ./scripts/launch.ps1 -Cpu -NoBrowser
+            & '.\ЗАПУСК НА ПРОЦЕССОРЕ.cmd' -NoBrowser
             if ($LASTEXITCODE -ne 0) { throw 'Portable startup failed' }
             & ./tools/node/node.exe scripts/portable-smoke.cjs
             if ($LASTEXITCODE -ne 0) { throw 'Portable smoke failed' }
